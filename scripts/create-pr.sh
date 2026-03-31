@@ -139,14 +139,16 @@ PR_BODY="## Blog Post Submission
 *This PR was created automatically via the blog CLI \`submit\` command*"
 
 # Create the PR
-PR_URL=$(gh pr create \
+gh pr create \
     --title "Blog Post: $TITLE" \
     --body "$PR_BODY" \
     --assignee "@me" \
     --label "blog-post" \
     --base main \
-    --head "$BRANCH" \
-    --json url --jq '.url')
+    --head "$BRANCH"
+
+# Get the PR URL
+PR_URL=$(gh pr view "$BRANCH" --json url --jq '.url')
 
 echo ""
 echo -e "${GREEN}✅ Success! GitHub PR created${NC}"
