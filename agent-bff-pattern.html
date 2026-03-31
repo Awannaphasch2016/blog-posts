@@ -1,0 +1,80 @@
+<h1
+id="agent-oriented-development-pattern-bff---the-aggregation-differentia">Agent-Oriented
+Development Pattern: BFF - The Aggregation Differentia</h1>
+<p>Watch an agent work: gather data from multiple tools, transform it,
+deliver exactly what’s needed. This is BFF thinking - the aggregation
+differentia that makes microservices human-friendly.</p>
+<h2 id="the-agent-differentia">The Agent Differentia</h2>
+<p>Agents naturally operate in a three-step cognitive pattern:
+<strong>Gather → Process → Deliver</strong>. When you ask an agent to
+create a dashboard, it doesn’t just “call multiple APIs” - it
+instinctively aggregates diverse tool outputs, transforms the data for
+your specific context, and delivers a specialized response tailored to
+your needs.</p>
+<p>This is precisely the Backend-for-Frontend (BFF) pattern, but most
+explanations miss the cognitive alignment. Traditional BFF descriptions
+focus on technical aggregation. The agent perspective reveals why BFF
+feels so natural: it mirrors how intelligence actually works when
+solving multi-source problems.</p>
+<p>The differentia? Agents don’t just compose data - they
+<strong>contextualize</strong> it. A mobile client needs different
+information than a web dashboard. Agents intuitively understand this
+specialization requirement.</p>
+<h2 id="concrete-example-chat-dashboard">Concrete Example: Chat
+Dashboard</h2>
+<p>Consider our chat platform dashboard. Traditional approach requires
+multiple client calls:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Without BFF (Client complexity)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> user <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/users/me&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> conversations <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/history/recent&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> analytics <span class="op">=</span> <span class="cf">await</span> <span class="fu">fetch</span>(<span class="st">&#39;/api/analytics/usage&#39;</span>)<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Client must merge complex data structures</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> dashboard <span class="op">=</span> <span class="fu">mergeComplexData</span>(user<span class="op">,</span> conversations<span class="op">,</span> analytics)<span class="op">;</span></span></code></pre></div>
+<p>Agent-native BFF approach mirrors natural intelligence:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode javascript"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// BFF Service (Agent-like aggregation)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>app<span class="op">.</span><span class="fu">get</span>(<span class="st">&#39;/api/bff/dashboard&#39;</span><span class="op">,</span> <span class="kw">async</span> (req<span class="op">,</span> res) <span class="kw">=&gt;</span> {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="co">// GATHER: Parallel tool execution (like agent workflow)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> [user<span class="op">,</span> conversations<span class="op">,</span> analytics] <span class="op">=</span> <span class="cf">await</span> <span class="bu">Promise</span><span class="op">.</span><span class="fu">all</span>([</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    userService<span class="op">.</span><span class="fu">getProfile</span>(req<span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span>)<span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    historyService<span class="op">.</span><span class="fu">getRecent</span>(req<span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span><span class="op">,</span> <span class="dv">5</span>)<span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    analyticsService<span class="op">.</span><span class="fu">getStats</span>(req<span class="op">.</span><span class="at">user</span><span class="op">.</span><span class="at">id</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  ])<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">// PROCESS: Transform for specific context</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dashboard <span class="op">=</span> {</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">user</span><span class="op">:</span> { <span class="dt">name</span><span class="op">:</span> user<span class="op">.</span><span class="at">name</span><span class="op">,</span> <span class="dt">avatar</span><span class="op">:</span> user<span class="op">.</span><span class="at">avatar</span> }<span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">recentChats</span><span class="op">:</span> conversations<span class="op">.</span><span class="fu">map</span>(c <span class="kw">=&gt;</span> ({</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">title</span><span class="op">:</span> c<span class="op">.</span><span class="at">title</span> <span class="op">||</span> <span class="st">&#39;New Chat&#39;</span><span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">preview</span><span class="op">:</span> c<span class="op">.</span><span class="at">last_message</span><span class="op">.</span><span class="fu">substring</span>(<span class="dv">0</span><span class="op">,</span> <span class="dv">50</span>) <span class="op">+</span> <span class="st">&#39;...&#39;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    }))<span class="op">,</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">stats</span><span class="op">:</span> { <span class="dt">totalChats</span><span class="op">:</span> analytics<span class="op">.</span><span class="at">conversation_count</span> }</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  }<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">// DELIVER: Specialized response for UI needs</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  res<span class="op">.</span><span class="fu">json</span>(dashboard)<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>})<span class="op">;</span></span></code></pre></div>
+<h2 id="agent-thinking-visualization">Agent Thinking Visualization</h2>
+<pre><code>AGENT WORKFLOW:
+[Tool A] ──┐
+[Tool B] ──┤──► [Agent Brain] ──► [Contextualized Response]
+[Tool C] ──┘     (Transform)           (For specific need)
+  │
+  └── Gather diverse data
+
+BFF PATTERN MIRROR:
+[API A] ──┐
+[API B] ──┤──► [BFF Service] ──► [UI-Optimized Response]
+[API C] ──┘     (Aggregate)         (For specific client)
+  │
+  └── Gather service data</code></pre>
+<h2 id="implementation-trigger">Implementation Trigger</h2>
+<p>Recognize BFF opportunities by asking: “Am I in
+gather-process-deliver mode?” When you find yourself thinking “I need
+data from multiple sources, transform it, and deliver something specific
+to this context” - that’s your agent brain recognizing a BFF
+pattern.</p>
+<p>Next pattern: How agents naturally break complex problems into atomic
+tasks (Todo-Driven Development).</p>

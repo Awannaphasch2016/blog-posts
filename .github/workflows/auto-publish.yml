@@ -1,0 +1,126 @@
+name: Auto-publish Blog Post
+
+on:
+  push:
+    branches: [main]
+    paths: ['posts/**/*.md']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit to compare changes
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          npm install -g @doppler/cli
+
+      - name: Setup Doppler
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          doppler configure set token $DOPPLER_TOKEN
+
+      - name: Detect and publish new/modified posts
+        run: |
+          # Get list of changed files in this push
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | grep '^posts/.*\.md$' || true)
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No blog posts changed"
+            exit 0
+          fi
+
+          echo "Publishing changed blog posts:"
+          for file in $CHANGED_FILES; do
+            if [ -f "$file" ]; then
+              echo "Publishing $file..."
+
+              # Extract title for logging
+              TITLE=$(grep '^title:' "$file" | sed 's/title: *[\"'\'']*//' | sed 's/[\"'\'']* *$//' || echo "Unknown")
+
+              # Validate before publishing
+              echo "Validating $file..."
+              if doppler run --project blog --config dev -- blog validate "$file"; then
+                echo "✅ Validation passed for $file"
+
+                # Publish to Dev.to
+                echo "📤 Publishing to Dev.to..."
+                if doppler run --project blog --config dev -- blog publish "$file"; then
+                  echo "✅ Successfully published: $TITLE"
+
+                  # Create status comment in latest merged PR
+                  LATEST_PR=$(gh pr list --state merged --limit 1 --json number --jq '.[0].number' || echo "")
+                  if [ -n "$LATEST_PR" ]; then
+                    gh pr comment $LATEST_PR --body "✅ **Auto-published:** $TITLE
+
+                    📄 **File:** \`$file\`
+                    🚀 **Status:** Successfully published to Dev.to
+                    ⏰ **Published at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+                    ---
+                    🤖 *Automated by blog CLI via GitHub Actions*"
+                  fi
+                else
+                  echo "❌ Failed to publish: $TITLE"
+
+                  # Create failure comment
+                  if [ -n "$LATEST_PR" ]; then
+                    gh pr comment $LATEST_PR --body "❌ **Publication failed:** $TITLE
+
+                    📄 **File:** \`$file\`
+                    🚨 **Status:** Failed to publish to Dev.to
+                    ⏰ **Attempted at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+                    Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+
+                    ---
+                    🤖 *Automated by blog CLI via GitHub Actions*"
+                  fi
+                  exit 1
+                fi
+              else
+                echo "❌ Validation failed for $file"
+                exit 1
+              fi
+            else
+              echo "⚠️  File $file was deleted"
+            fi
+          done
+
+          echo "🎉 All blog posts published successfully!"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  track-status:
+    runs-on: ubuntu-latest
+    needs: publish
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update publication status
+        run: |
+          # Create/update status tracking file
+          echo "# Publication Status" > .publish-status.md
+          echo "" >> .publish-status.md
+          echo "Last publication attempt: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> .publish-status.md
+          echo "Workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> .publish-status.md
+          echo "Status: ${{ needs.publish.result }}" >> .publish-status.md
+          echo "" >> .publish-status.md
+
+          if [ "${{ needs.publish.result }}" = "success" ]; then
+            echo "✅ Publication successful" >> .publish-status.md
+          else
+            echo "❌ Publication failed - check workflow logs" >> .publish-status.md
+          fi
+
+          # This file is not committed - just for workflow tracking
+          echo "Publication tracking updated"

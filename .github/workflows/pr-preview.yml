@@ -1,0 +1,134 @@
+name: PR Preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['posts/**/*.md']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          npm install -g @doppler/cli
+          # Install blog CLI dependencies if needed
+
+      - name: Setup Doppler
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          doppler configure set token $DOPPLER_TOKEN
+
+      - name: Validate blog post format
+        run: |
+          # Find changed markdown files in posts/
+          CHANGED_FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only | grep '^posts/.*\.md$' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            for file in $CHANGED_FILES; do
+              echo "Validating $file..."
+              doppler run --project blog --config dev -- blog validate "$file"
+            done
+          else
+            echo "No markdown files changed in posts/ directory"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  preview:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate preview
+        run: |
+          # Find changed markdown files
+          CHANGED_FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only | grep '^posts/.*\.md$' || true)
+
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "## 📝 Blog Post Preview" >> preview.md
+            echo "" >> preview.md
+
+            for file in $CHANGED_FILES; do
+              if [ -f "$file" ]; then
+                echo "### 📄 $file" >> preview.md
+                echo "" >> preview.md
+                echo "\`\`\`markdown" >> preview.md
+                cat "$file" >> preview.md
+                echo "" >> preview.md
+                echo "\`\`\`" >> preview.md
+                echo "" >> preview.md
+
+                # Extract metadata for summary
+                TITLE=$(grep '^title:' "$file" | sed 's/title: *[\"'\'']*//' | sed 's/[\"'\'']* *$//')
+                TAGS=$(grep '^tags:' "$file" | sed 's/tags: *//')
+
+                echo "**Title:** $TITLE" >> preview.md
+                echo "**Tags:** $TAGS" >> preview.md
+                echo "" >> preview.md
+                echo "---" >> preview.md
+                echo "" >> preview.md
+              fi
+            done
+          else
+            echo "No blog posts to preview" >> preview.md
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Comment PR with preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let previewContent = '';
+
+            try {
+              previewContent = fs.readFileSync('preview.md', 'utf8');
+            } catch (error) {
+              previewContent = '## 📝 Blog Post Preview\n\nNo blog posts found to preview.';
+            }
+
+            // Find existing preview comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('📝 Blog Post Preview')
+            );
+
+            const commentBody = `${previewContent}
+
+            ---
+            🤖 *Auto-generated preview - updates with each commit*`;
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
